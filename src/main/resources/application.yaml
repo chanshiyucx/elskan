@@ -1,0 +1,19 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: elskan
+  datasource:
+    url: jdbc:mysql://${mysql.address}:3306/elskan
+    hikari:
+      username: root
+      password: Aa778899
+      driver-class-name: com.mysql.cj.jdbc.Driver
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+
+logging:
+  level:
+    com.chanshiyu.elskan: info
