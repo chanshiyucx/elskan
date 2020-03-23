@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Elskan</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        user-select: none;
+        scroll-behavior: smooth;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        background-image: linear-gradient(to top, #fbc2eb 0%, #a6c1ee 100%);
+        overflow: hidden;
+        color: #666;
+      }
+
+      .container {
+        margin: 60px auto;
+        padding: 12px;
+        width: 900px;
+        height: 600px;
+        border-radius: 3px;
+        background-color: rgba(255, 255, 255, 0.6);
+        box-shadow: 0 14px 38px rgba(0, 0, 0, 0.08),
+          0 3px 8px rgba(0, 0, 0, 0.06);
+      }
+
+      .row {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        margin: 12px 0;
+      }
+
+      input {
+        margin-left: 8px;
+        padding: 0 6px;
+        width: 300px;
+        line-height: 34px;
+        appearance: none;
+        -webkit-appearance: none;
+        border: 1px solid #ddd;
+        border-right: none;
+        border-radius: 0;
+      }
+
+      button {
+        cursor: pointer;
+        width: 60px;
+        height: 34px;
+        background-color: #986db2;
+        color: #fff;
+        border: none;
+        border-radius: 0 3px 3px 0;
+        letter-spacing: 2px;
+      }
+
+      table {
+        margin: 0 auto;
+        width: 600px;
+        table-layout: fixed;
+        border-radius: 3px;
+        border-spacing: 2px;
+        border-collapse: separate;
+        border: 1px solid #dfdfdf;
+      }
+
+      table tbody {
+        display: block;
+        width: 100%;
+        overflow: auto;
+        max-height: 400px;
+      }
+
+      table thead tr {
+        display: block;
+      }
+
+      table thead {
+        background: rgba(0, 0, 0, 0.1);
+        color: #fff;
+      }
+
+      table th,
+      table td {
+        padding: 5px;
+        text-align: center;
+        width: 300px;
+        border: 1px solid #dfdfdf;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="field">
+          <label for="url">输入伪装地址</label>
+          <input
+            id="url"
+            name="url"
+            placeholder="如 https://chanshiyu.com/"
+            required
+          />
+        </div>
+        <button onclick="getCode()" class="button">提交</button>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="url">生成分享链接</label>
+          <input id="link" name="link" readonly disabled />
+        </div>
+
+        <button onclick="copyToClipboard()" class="button">复制</button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>IP</th>
+            <th>访问时间</th>
+          </tr>
+        </thead>
+        <tbody id="infos"></tbody>
+      </table>
+    </div>
+    <!-- <footer>
+Designed by chanshiyu
+</footer> -->
+    <script>
+      let timer, code, list;
+
+      // 写入缓存
+      const localSave = (key, value) => {
+        localStorage.setItem(key, value);
+      };
+
+      // 读取缓存
+      const localRead = (key, defaultValue = "") => {
+        return localStorage.getItem(key) || defaultValue;
+      };
+
+      // 复制
+      const copyToClipboard = () => {
+        const el = document.getElementById("link"); // Create a <textarea> element
+        const selected =
+          document.getSelection().rangeCount > 0 // Check if there is any content selected previously
+            ? document.getSelection().getRangeAt(0) // Store selection if found
+            : false; // Mark as false to know no selection existed before
+        el.select(); // Select the <textarea> content
+        document.execCommand("copy"); // Copy - only works as a result of a user action (e.g. click events)
+        if (selected) {
+          // If a selection existed before copying
+          document.getSelection().removeAllRanges(); // Unselect everything on the HTML document
+          document.getSelection().addRange(selected); // Restore the original selection
+        }
+      };
+
+      // 状态检测
+      const checkStatus = response => {
+        if (response.status >= 200 && response.status < 300) return response;
+        const error = new Error(response.statusText);
+        error.response = response;
+        throw error;
+      };
+
+      // 自定义fetch
+      const myFetch = async (url, method) => {
+        try {
+          const response = await fetch(url, { method });
+          checkStatus(response);
+          return await response.json();
+        } catch (error) {
+          console.log(error);
+        }
+      };
+
+      const getCode = async () => {
+        const el = document.getElementById("url");
+        const url = el.value;
+        if (url && url.trim() !== "") {
+          try {
+            clearTimeout(timer);
+            code = "";
+            list = [];
+            const res = await myFetch(`/source/create?url=${url}`, "GET");
+            code = res.data.code;
+            localSave("code", code);
+            initLink();
+            task();
+          } catch (error) {
+            console.log(error);
+          }
+        }
+      };
+
+      const initLink = () => {
+        const linkEl = document.getElementById("link");
+        const link = `${window.location.href}access/${code}`;
+        linkEl.value = link;
+      };
+
+      const task = () => {
+        timer = setTimeout(async () => {
+          try {
+            const res = await myFetch(`/access/list/${code}`, "GET");
+            list = res.data;
+            showInfo();
+          } catch (error) {
+            console.log(error);
+          }
+          task();
+        }, 3000);
+      };
+
+      const showInfo = () => {
+        const el = document.getElementById("infos");
+        const infos = list
+          .map(li => `<tr><td>${li.ip}</td><td>${li.createTime}</td></tr>`)
+          .join("");
+
+        // el.innerHTML = infos;
+        let result = "";
+        for (let index = 0; index < 30; index++) {
+          result += infos;
+        }
+        el.innerHTML = result;
+      };
+
+      window.onload = () => {
+        code = localRead("code");
+        if (code) {
+          initLink();
+          task();
+        }
+      };
+    </script>
+  </body>
+</html>
